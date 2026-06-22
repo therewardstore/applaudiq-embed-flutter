@@ -138,6 +138,12 @@ The SDK applies the same WebView hardening as the iOS and Android SDKs:
 | `onReady` / `onAuthPending` / `onError` / `onClose` / `onSignOut` | callbacks | lifecycle |
 | `backNavigation` | `bool` | system back steps through WebView history (default true) |
 
-## Publishing (maintainers)
+## Example
 
-See **[RELEASE.md](./RELEASE.md)** for the pub.dev publish flow.
+A runnable example app (one Flutter app, Android **and** iOS) lives in
+[`applaudiq-sdk-example`](https://github.com/therewardstore/applaudiq-sdk-example/tree/master/native-integration/flutter)
+under `native-integration/flutter/`.
+
+## Changelog
+
+Latest: **v1.1.0 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).

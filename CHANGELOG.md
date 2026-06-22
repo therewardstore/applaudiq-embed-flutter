@@ -3,6 +3,12 @@
 All notable changes to `applaudiq_embed` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.1.0
+
+**Long-Term Support (LTS) release.** Unified 1.1.0 across the SDK family (Web · iOS · Android · React Native ·
+Flutter) — documentation & packaging refresh (README example link, a Changelog section; maintainer-only files
+removed from the public repo). No public API changes.
+
 ## 1.0.0
 
 First published release — full parity with the iOS, Android, and React Native SDKs, for **Android and iOS**.
