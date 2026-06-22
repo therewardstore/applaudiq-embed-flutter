@@ -1,0 +1,32 @@
+name: applaudiq_embed
+description: >-
+  Embed the Applaud IQ recognition portal in a Flutter app (Android + iOS) with auto / manual login
+  and native SSO, in a hardened WebView. Mirrors the iOS / Android / React Native / Web SDKs.
+version: 1.0.0
+repository: https://github.com/therewardstore/applaudiq-embed-flutter
+homepage: https://github.com/therewardstore/applaudiq-embed-flutter
+issue_tracker: https://github.com/therewardstore/applaudiq-embed-flutter/issues
+
+topics:
+  - webview
+  - sso
+  - embed
+  - authentication
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.10.0
+  webview_flutter_android: ^4.3.0
+  webview_flutter_wkwebview: ^3.18.0
+  flutter_web_auth_2: ^5.0.0
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
