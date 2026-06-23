@@ -146,4 +146,4 @@ under `native-integration/flutter/`.
 
 ## Changelog
 
-Latest: **v1.1.0 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).
+Latest: **v1.1.1 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).
