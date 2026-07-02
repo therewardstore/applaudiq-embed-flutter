@@ -126,6 +126,15 @@ The SDK applies the same WebView hardening as the iOS and Android SDKs:
 
 ---
 
+## Downloads & external links
+
+When the portal (or the reward store nested inside it) needs to open a URL outside the WebView —
+a file download, a payment page, or an OAuth handoff — it sends the `applaudiq:open-external` bridge
+message with payload `{ url }`. The SDK opens `http(s)` URLs in the **system browser**
+(`url_launcher`, `LaunchMode.externalApplication`). No app code is required.
+
+---
+
 ## API
 
 | Prop | Type | Notes |
@@ -146,4 +155,4 @@ under `native-integration/flutter/`.
 
 ## Changelog
 
-Latest: **v1.1.1 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).
+Latest: **v1.2.0 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).

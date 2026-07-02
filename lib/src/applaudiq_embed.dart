@@ -187,6 +187,13 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
         final email = payload?['email']?.toString();
         unawaited(_openSSO(provider, clientId, email));
         break;
+      case 'applaudiq:open-external':
+        // Reward-store downloads / payment / OAuth: open the URL in the system browser.
+        final url = payload?['url']?.toString() ?? '';
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          unawaited(launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication));
+        }
+        break;
       case 'applaudiq:resize':
         break; // no-op on full-screen native
     }
