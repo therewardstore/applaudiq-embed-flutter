@@ -133,6 +133,10 @@ a file download, a payment page, or an OAuth handoff — it sends the `applaudiq
 message with payload `{ url }`. The SDK opens `http(s)` URLs in the **system browser**
 (`url_launcher`, `LaunchMode.externalApplication`). No app code is required.
 
+The reward store's **gift-card voucher download** additionally sends `applaudiq:save-file` with
+`{ base64, filename, mime }`. The SDK writes the file to a temp dir and opens the OS share sheet via
+`share_plus` — no app code required (the `path_provider` + `share_plus` deps ship with the SDK).
+
 ---
 
 ## API
@@ -155,4 +159,4 @@ under `native-integration/flutter/`.
 
 ## Changelog
 
-Latest: **v1.2.0 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).
+Latest: **v1.3.0 (LTS)**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history (also shown on the pub.dev page).

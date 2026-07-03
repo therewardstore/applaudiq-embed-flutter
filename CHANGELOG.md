@@ -3,6 +3,13 @@
 All notable changes to `applaudiq_embed` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.3.0
+
+**Reward-store voucher download.** Adds the `applaudiq:save-file` bridge message (payload
+`{ base64, filename, mime }`): the embedded reward store streams gift-card voucher bytes when a blob
+download can't reach disk in a WebView. The SDK writes a temp file and opens the OS share sheet via
+`share_plus` (adds `path_provider` + `share_plus` dependencies). Backward-compatible.
+
 ## 1.2.0
 
 **Reward-store downloads / external links.** The SDK now handles the `applaudiq:open-external` bridge message

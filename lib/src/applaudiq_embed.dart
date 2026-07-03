@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -194,8 +197,37 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
           unawaited(launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication));
         }
         break;
+      case 'applaudiq:save-file':
+        // Reward-store voucher download: the embed streamed the file bytes (base64) because a blob
+        // download can't reach disk inside the WebView. Persist + open the OS share sheet.
+        final base64Data = payload?['base64']?.toString() ?? '';
+        final rawName = payload?['filename']?.toString() ?? 'download';
+        final baseName = rawName.split(RegExp(r'[\\/]')).last; // basename only (no path traversal)
+        final mime = payload?['mime']?.toString() ?? 'application/octet-stream';
+        if (base64Data.isNotEmpty) {
+          unawaited(
+            _saveFile(base64Data, baseName.isEmpty ? 'download' : baseName, mime),
+          );
+        }
+        break;
       case 'applaudiq:resize':
         break; // no-op on full-screen native
+    }
+  }
+
+  /// Decode base64 file bytes → temp file → OS share sheet ("Save to Files" / share targets).
+  /// Best-effort: any decode/write/share failure is swallowed so the host app never crashes.
+  Future<void> _saveFile(String base64Data, String filename, String mime) async {
+    try {
+      final bytes = base64Decode(base64Data);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(bytes, flush: true);
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path, mimeType: mime, name: filename)]),
+      );
+    } catch (_) {
+      // malformed base64 / write failed / user cancelled — best-effort.
     }
   }
 
