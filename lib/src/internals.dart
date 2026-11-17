@@ -2,6 +2,7 @@
 // Mirrors the iOS `EmbedInternals` / Android `EmbedInternals` / RN internals so the Flutter
 // SDK builds the exact same embed + SSO URLs and runs the same bridge protocol.
 import 'dart:convert';
+import 'dart:math';
 
 /// Default portal origin when [EmbedConfig.baseUrl] is omitted.
 const String kDefaultBase = 'https://recognize.applaudiq.com';
@@ -12,14 +13,12 @@ const List<String> kSsoProviders = ['google', 'microsoft'];
 /// Normalizes a mode string to `auto` | `manual` (defaults to auto).
 String normalizeMode(String? mode) => mode == 'manual' ? 'manual' : 'auto';
 
-/// `<baseUrl>/embed?mode={auto|manual}&k={key}` (+ `&token=` in auto, + `&env=test` for `pk_test_` keys).
-String buildEmbedUrl(String base, String mode, String key, {String? token}) {
+/// `<baseUrl>/embed?mode={auto|manual}&k={key}` (+ `&env=test` for `pk_test_` keys). The one-time
+/// token is NEVER put in the URL (history, logs, Referer); it goes only via `applaudiq:init-token`.
+String buildEmbedUrl(String base, String mode, String key) {
   final m = normalizeMode(mode);
   final b = StringBuffer('$base/embed?mode=$m');
   if (key.isNotEmpty) b.write('&k=${Uri.encodeComponent(key)}');
-  if (m == 'auto' && token != null && token.isNotEmpty) {
-    b.write('&token=${Uri.encodeComponent(token)}');
-  }
   if (key.startsWith('pk_test_')) b.write('&env=test');
   return b.toString();
 }
@@ -99,18 +98,46 @@ String? callbackParam(String url, String key) {
   }
 }
 
+/// A fresh random bridge nonce (128 bits, hex). One per embed instance.
+String newBridgeNonce() {
+  final r = Random.secure();
+  return List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+}
+
+/// Wraps a portal message for the `ApplaudIQFlutter` channel as `{"n": nonce, "m": data}`.
+String _wrapJs(String nonce, String dataExpr) =>
+    'ApplaudIQFlutter.postMessage(JSON.stringify({n:${jsonEncode(nonce)},m:$dataExpr}))';
+
+/// Unwraps a channel message: returns the portal envelope only when it carries [nonce], else null.
+/// The channel object is reachable from EVERY frame (webview_flutter gives no frame/origin info), so
+/// the nonce — injected only into the main frame on the portal origin, held in a closure — is what
+/// proves the sender is that main frame. Accepts `m` as an object or as a JSON string.
+Map<String, dynamic>? unwrapBridgeMessage(String raw, String nonce) {
+  if (nonce.isEmpty) return null;
+  try {
+    final outer = jsonDecode(raw);
+    if (outer is! Map || outer['n'] != nonce) return null;
+    final m = outer['m'];
+    final d = m is String ? jsonDecode(m) : m;
+    return d is Map ? Map<String, dynamic>.from(d) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Bridge installed at page start, ORIGIN-GATED to the portal origin only: forwards
-/// `window.parent.postMessage` → the `ApplaudIQFlutter` channel and sets the native flag/mode the
-/// portal reads (`isNativeEmbed` / `embedMode`). A navigated-to off-origin page never gets the bridge
-/// or the flag. Mirrors iOS `forMainFrameOnly` + Android `onPageStarted` sameOrigin + RN origin gate.
-String injectedBridgeJs(String mode, String? origin) {
+/// `window.parent.postMessage` → the `ApplaudIQFlutter` channel (nonce-wrapped, see
+/// [unwrapBridgeMessage]) and sets the native flag/mode the portal reads (`isNativeEmbed` /
+/// `embedMode`). `runJavaScript` runs in the main frame only, so sub-frames never get the nonce.
+/// A navigated-to off-origin page never gets the bridge or the flag.
+String injectedBridgeJs(String mode, String? origin, String nonce) {
   final m = normalizeMode(mode);
   final o = jsonEncode(origin ?? '');
   return '''
     if (window.location.origin === $o) {
       window.parent = window.parent || window;
       window.parent.postMessage = function(data){
-        try { ApplaudIQFlutter.postMessage(JSON.stringify(data)); } catch(e){}
+        try { ${_wrapJs(nonce, 'data')}; } catch(e){}
       };
       window.__APPLAUDIQ_EMBED__ = { mode: ${jsonEncode(m)}, native: true };
     }
@@ -120,7 +147,7 @@ String injectedBridgeJs(String mode, String? origin) {
 
 /// Redeem the one-time SSO code INSIDE the WebView (same-origin fetch) so the session cookies land in
 /// the WebView's own store, then reload so the authenticated portal renders.
-String completeSsoJs(String code) {
+String completeSsoJs(String code, String nonce) {
   return '''
     (async function(){
       try {
@@ -132,9 +159,7 @@ String completeSsoJs(String code) {
         if (!r.ok) throw new Error('sso_exchange_failed');
         window.location.replace('/');
       } catch(e) {
-        ApplaudIQFlutter.postMessage(JSON.stringify({
-          source:'applaudiq-embed', type:'applaudiq:error', payload:{ message:'sso_exchange_failed' }
-        }));
+        ${_wrapJs(nonce, "{ source:'applaudiq-embed', type:'applaudiq:error', payload:{ message:'sso_exchange_failed' } }")};
       }
     })(); true;
   ''';

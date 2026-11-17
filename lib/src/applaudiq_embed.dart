@@ -71,13 +71,15 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
   late final String _base;
   late final String? _baseOrigin;
   late final String _embedUrl;
+  // Per-instance bridge secret; only the portal main frame receives it (see unwrapBridgeMessage).
+  final String _nonce = newBridgeNonce();
 
   @override
   void initState() {
     super.initState();
     _base = widget.config.baseUrl.replaceAll(RegExp(r'/$'), '');
     _baseOrigin = originOf(_base);
-    _embedUrl = buildEmbedUrl(_base, widget.mode.value, widget.config.key, token: widget.token);
+    _embedUrl = buildEmbedUrl(_base, widget.mode.value, widget.config.key);
     _secure = isSecureBaseUrl(_base, isDebug: kDebugMode);
 
     if (!_secure) {
@@ -108,7 +110,7 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
         NavigationDelegate(
           // Bridge is injected (origin-gated in the JS itself) as early as the high-level API allows.
           onPageStarted: (_) => unawaited(
-            controllerSafe?.runJavaScript(injectedBridgeJs(widget.mode.value, _baseOrigin)) ??
+            controllerSafe?.runJavaScript(injectedBridgeJs(widget.mode.value, _baseOrigin, _nonce)) ??
                 Future<void>.value(),
           ),
           onNavigationRequest: _onNavigation,
@@ -136,7 +138,8 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
   FutureOr<NavigationDecision> _onNavigation(NavigationRequest req) {
     if (!req.isMainFrame) return NavigationDecision.navigate;
     final url = req.url;
-    if (url.startsWith('about:') || url.startsWith('data:') || sameOrigin(url, _base)) {
+    // `data:` is not allowed: a data: document is attacker-authored content in the embed's frame.
+    if (url.startsWith('about:') || sameOrigin(url, _base)) {
       return NavigationDecision.navigate;
     }
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -146,17 +149,14 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
   }
 
   Future<void> _onMessage(JavaScriptMessage message) async {
-    // Only the portal origin may drive the native bridge — a navigated-away / off-origin page (the
-    // channel object is injected on every frame) must not spoof the handshake or trigger SSO.
+    // Only the portal main frame may drive the native bridge. The channel object is exposed to every
+    // frame, so a message must carry the nonce that only the portal main frame was given; the main
+    // frame must also still be on the portal origin.
+    final d = unwrapBridgeMessage(message.message, _nonce);
+    if (d == null) return;
     final current = await _controller?.currentUrl();
     if (!sameOrigin(current, _base)) return;
 
-    Map<String, dynamic> d;
-    try {
-      d = jsonDecode(message.message) as Map<String, dynamic>;
-    } catch (_) {
-      return;
-    }
     if (d['source'] != 'applaudiq-embed') return;
     final payload = d['payload'] as Map<String, dynamic>?;
 
@@ -241,7 +241,7 @@ class _ApplaudIQEmbedState extends State<ApplaudIQEmbed> {
       final code = callbackParam(result, 'code');
       if (code != null) {
         // Success: redeem the one-time code inside the WebView so cookies land in its store, reload.
-        await _controller?.runJavaScript(completeSsoJs(code));
+        await _controller?.runJavaScript(completeSsoJs(code, _nonce));
         return;
       }
       // Failure / identity-mismatch: surface it and reload the login so the user can retry.
