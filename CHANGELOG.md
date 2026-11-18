@@ -3,6 +3,13 @@
 All notable changes to `applaudiq_embed` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.4.0
+
+**Security.** The JavaScript bridge now accepts messages only from the portal page itself, using a
+per-instance nonce, so a framed or injected page cannot drive the SDK. The one-time `token` is no
+longer put in the embed URL; it is sent only by the `applaudiq:init-token` message. The main frame
+never loads `data:` URLs. No public API change.
+
 ## 1.3.0
 
 **Reward-store voucher download.** Adds the `applaudiq:save-file` bridge message (payload
