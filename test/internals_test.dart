@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:applaudiq_embed/src/internals.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,16 +11,10 @@ void main() {
         'https://recognize.applaudiq.com/embed?mode=manual&k=pk_live_abc',
       );
     });
-    test('auto mode appends token', () {
+    test('auto mode never carries the token in the URL', () {
       expect(
-        buildEmbedUrl('https://x.test', 'auto', 'pk_live_abc', token: 't0k'),
-        'https://x.test/embed?mode=auto&k=pk_live_abc&token=t0k',
-      );
-    });
-    test('manual mode ignores token', () {
-      expect(
-        buildEmbedUrl('https://x.test', 'manual', 'pk_live_abc', token: 't0k'),
-        'https://x.test/embed?mode=manual&k=pk_live_abc',
+        buildEmbedUrl('https://x.test', 'auto', 'pk_live_abc'),
+        'https://x.test/embed?mode=auto&k=pk_live_abc',
       );
     });
     test('pk_test_ key adds env=test', () {
@@ -105,11 +101,36 @@ void main() {
 
   group('injectedBridgeJs', () {
     test('is origin-gated and sets the native flag', () {
-      final js = injectedBridgeJs('auto', 'https://x.test');
+      final js = injectedBridgeJs('auto', 'https://x.test', 'abc123');
       expect(js, contains('window.location.origin === "https://x.test"'));
+      expect(js, contains('n:"abc123"'));
       expect(js, contains('__APPLAUDIQ_EMBED__'));
       expect(js, contains('native: true'));
       expect(js, contains('mode: "auto"'));
+    });
+  });
+
+  group('bridge nonce', () {
+    const env = '{"source":"applaudiq-embed","type":"applaudiq:ready"}';
+    test('newBridgeNonce is 32 hex chars and random', () {
+      final a = newBridgeNonce();
+      expect(a, matches(RegExp(r'^[0-9a-f]{32}$')));
+      expect(a == newBridgeNonce(), isFalse);
+    });
+    test('accepts a message with the right nonce (object or string payload)', () {
+      expect(unwrapBridgeMessage('{"n":"k1","m":$env}', 'k1')?['type'], 'applaudiq:ready');
+      expect(unwrapBridgeMessage('{"n":"k1","m":${jsonEncode(env)}}', 'k1')?['type'], 'applaudiq:ready');
+    });
+    test('rejects a missing / wrong nonce or an unwrapped envelope (sub-frame spoof)', () {
+      expect(unwrapBridgeMessage('{"n":"bad","m":$env}', 'k1'), isNull);
+      expect(unwrapBridgeMessage(env, 'k1'), isNull);
+      expect(unwrapBridgeMessage('not json', 'k1'), isNull);
+      expect(unwrapBridgeMessage('{"n":"","m":$env}', ''), isNull);
+    });
+    test('completeSsoJs reports failure through the nonce-wrapped channel', () {
+      final js = completeSsoJs('c"ode', 'k1');
+      expect(js, contains('n:"k1"'));
+      expect(js, contains('"c\\"ode"'));
     });
   });
 }
